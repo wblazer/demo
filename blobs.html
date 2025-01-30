@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Blob Physics</title>
+    <style>
+        body { margin: 0; background: #1a1a1a; }
+        canvas { background: #1a1a1a; }
+    </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script>
+// Play with these!
+const BLOB_COOLDOWN = 150;     // Milliseconds between blobs
+const BLOB_SIZE = 30;          // Radius in pixels
+const GRAVITY = 0.2;           // Gravity strength
+const BOUNCE = 0.80;            // 1 = perfect bounce, 0 = no bounce
+const FRICTION = 0.99;         // Air/surface friction
+const MAX_BLOBS = 500;         // Prevent slowdown
+const SPREAD = 4;              // Initial velocity spread
+const COLLISION_DAMPING = 0.8; // Energy loss in collisions
+const MIN_SPEED = 0.1;         // Minimum speed before stopping
+const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FF9F1C', '#E71D36'];
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+canvas.width = window.innerWidth - 20;
+canvas.height = window.innerHeight - 20;
+
+let blobs = [];
+let isMouseDown = false;
+let mouseX = 0, mouseY = 0;
+let lastBlobTime = 0;
+
+class Blob {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * SPREAD;
+        this.vy = (Math.random() - 0.5) * SPREAD;
+        this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+    }
+
+    update() {
+        this.vy += GRAVITY;
+
+        if (Math.abs(this.vx) < MIN_SPEED) this.vx = 0;
+        if (Math.abs(this.vy) < MIN_SPEED && this.y > canvas.height - BLOB_SIZE - 1) this.vy = 0;
+
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vx *= FRICTION;
+        this.vy *= FRICTION;
+
+        if (this.x < BLOB_SIZE) {
+            this.x = BLOB_SIZE;
+            this.vx = Math.abs(this.vx) * BOUNCE;
+        }
+        if (this.x > canvas.width - BLOB_SIZE) {
+            this.x = canvas.width - BLOB_SIZE;
+            this.vx = -Math.abs(this.vx) * BOUNCE;
+        }
+        if (this.y < BLOB_SIZE) {
+            this.y = BLOB_SIZE;
+            this.vy = Math.abs(this.vy) * BOUNCE;
+        }
+        if (this.y > canvas.height - BLOB_SIZE) {
+            this.y = canvas.height - BLOB_SIZE;
+            this.vy = -Math.abs(this.vy) * BOUNCE;
+        }
+    }
+
+    draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, BLOB_SIZE, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+    }
+
+    collideWith(other) {
+        const dx = other.x - this.x;
+        const dy = other.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < BLOB_SIZE * 2) {
+            const angle = Math.atan2(dy, dx);
+            const sin = Math.sin(angle);
+            const cos = Math.cos(angle);
+
+            const vx1 = this.vx * cos + this.vy * sin;
+            const vy1 = this.vy * cos - this.vx * sin;
+            const vx2 = other.vx * cos + other.vy * sin;
+            const vy2 = other.vy * cos - other.vx * sin;
+
+            this.vx = (vx2 * cos - vy1 * sin) * COLLISION_DAMPING;
+            this.vy = (vy1 * cos + vx2 * sin) * COLLISION_DAMPING;
+            other.vx = (vx1 * cos - vy2 * sin) * COLLISION_DAMPING;
+            other.vy = (vy2 * cos + vx1 * sin) * COLLISION_DAMPING;
+
+            const overlap = (BLOB_SIZE * 2 - distance);
+            const moveX = (dx / distance) * overlap;
+            const moveY = (dy / distance) * overlap;
+
+            this.x -= moveX / 2;
+            this.y -= moveY / 2;
+            other.x += moveX / 2;
+            other.y += moveY / 2;
+        }
+    }
+}
+
+function addBlob() {
+    const now = Date.now();
+    if (now - lastBlobTime > BLOB_COOLDOWN && blobs.length < MAX_BLOBS) {
+        blobs.push(new Blob(mouseX, mouseY));
+        lastBlobTime = now;
+    }
+}
+
+function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (isMouseDown) {
+        addBlob();
+    }
+
+    blobs.forEach(b => b.update());
+
+    for (let i = 0; i < blobs.length; i++) {
+        for (let j = i + 1; j < blobs.length; j++) {
+            blobs[i].collideWith(blobs[j]);
+        }
+    }
+
+    blobs.forEach(b => b.draw());
+
+    requestAnimationFrame(animate);
+}
+
+canvas.addEventListener('mousedown', (e) => {
+    isMouseDown = true;
+    mouseX = e.offsetX;
+    mouseY = e.offsetY;
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    mouseX = e.offsetX;
+    mouseY = e.offsetY;
+});
+
+canvas.addEventListener('mouseup', () => isMouseDown = false);
+canvas.addEventListener('mouseleave', () => isMouseDown = false);
+
+animate();
+</script>
+</body>
+</html>
