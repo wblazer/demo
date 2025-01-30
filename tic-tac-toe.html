@@ -55,7 +55,11 @@ function makeMove(position) {
         showMessage("It's a tie!")
         setTimeout(resetBoard, 1500)
     } else {
-        currentPlayer = currentPlayer === 'X' ? 'O' : 'X'
+        if (currentPlayer === 'X') {
+            currentPlayer = 'X'
+        } else {
+            currentPlayer = 'O'
+        }
         document.getElementById('status').textContent = `${currentPlayer}'s turn`
     }
 }
